@@ -63,7 +63,7 @@ while True:
 
         fetch_time = time.time() - start
 
-        if button_label == gpu['keyword']:
+        if button_label != gpu['keyword']:
             notify(f"{gpu['name']} - Retrieved {fetch_time:.2f}s ago", f"{button_label}", "Glass", gpu['url'], IMESSAGE_PHONE_NUMBER)
             printer(response.status_code, gpu['name'], f'{button_label}', bcolors.OKGREEN)
             notification_counter += 1
