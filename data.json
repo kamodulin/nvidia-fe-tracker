@@ -53,15 +53,6 @@
                 "type": "class",
                 "name": "fulfillment-add-to-cart-button"
             }
-        },
-        {
-            "name": "PS5",
-            "url": "https://www.amazon.com/PlayStation-5-Console/dp/B08FC5L3RG",
-            "keyword": " Currently unavailable. ",
-            "target": {
-                "type": "id",
-                "name": "availability"
-            }
         }
     ],
     "user_agents": [

@@ -40,7 +40,7 @@ class Scraper:
             elif item["target"]["type"] == "id":
                 label = soup.find_all(id=item["target"]["name"])[0].get_text()
 
-            if label == item["keyword"]:
+            if label != item["keyword"]:
                 pprint(item, label, "OK")
                 self.alert(item, label)
             
@@ -86,8 +86,9 @@ class Scraper:
         try:
             for number in self.imessage_numbers:
                 notify(number, item, message)
-        except:
-            pass
+
+        except Exception as e:
+            pprint(item, e, "FAIL")
         
         self.notifications += 1
         
