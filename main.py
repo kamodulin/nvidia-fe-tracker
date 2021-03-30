@@ -1,81 +1,99 @@
-import time
-import datetime
-import os
-
+import logging
+import json
+import random
 import requests
-import numpy as np
+import time
+
 from bs4 import BeautifulSoup
 
-from inventory import user_agents, gpus
-from utilities import *
+from utilities import notify, pprint
 
-IMESSAGE_PHONE_NUMBER = 8001234567 #REPLACE with own iMessage-enabled phone number
-BUFFER = 5
-DELAY_MAX = 2 #DEFAULT=2
-LONG_PAUSE_MAX = 15 #DEFAULT=15
-LONG_PAUSE_THRESH = 0.07 #DEFAULT=0.07
-MAX_NOTIFICATIONS = 4
+class Scraper:
+    def __init__(self):
+        self.load_data()
+        self.notifications = 0
+        self.active = True        
 
-buffer = BUFFER
-notification_counter = 0
-
-while True:        
-    if notification_counter >= MAX_NOTIFICATIONS:
-        print('Too many notifications. Reset required.')
-        break
-
-    random_pause = np.random.random_sample()
-
-    if random_pause < LONG_PAUSE_THRESH and buffer <= 0:
-        pause = np.random.random_sample() * LONG_PAUSE_MAX 
-        printer('SLEEP', '', f'Paused fetching for {pause:.2f}s.', bcolors.HEADER, sleep=True)
-        time.sleep(pause)
+    def load_data(self):
+        with open("data.json") as f:
+            data = json.load(f)
         
-        buffer = BUFFER
-        pass
+        for key, values in data.items():
+            setattr(self, key, values)
+    
+    def start(self):
+        while self.active:
+            self.fetch()
+            self.random_pause()
 
-    user_agent = np.random.choice(user_agents)
+    def fetch(self):
+        item = self.random_item()
+        headers = self.random_headers()
 
-    gpu = np.random.choice(gpus)
-
-    headers = {
-        'User-Agent': user_agent,
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'Host': 'www.bestbuy.com',
-        'Accept-Language': 'en-us',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive'
-        }
-
-    delay = np.random.random_sample() * DELAY_MAX
-
-    try:
-        start = time.time()
-        response = requests.get(gpu['url'], headers=headers)
-
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
-        try:
-            button_label = soup.find_all(class_='fulfillment-add-to-cart-button')[0].get_text()
-
-        except Exception as e:
-            button_label = 'LABEL NOT FOUND'
-
-        fetch_time = time.time() - start
-
-        if button_label != gpu['keyword']:
-            notify(f"{gpu['name']} - Retrieved {fetch_time:.2f}s ago", f"{button_label}", "Glass", gpu['url'], IMESSAGE_PHONE_NUMBER)
-            printer(response.status_code, gpu['name'], f'{button_label}', bcolors.OKGREEN)
-            notification_counter += 1
+        try:            
+            response = requests.get(item["url"], headers=headers)
+            soup = BeautifulSoup(response.text, "html.parser")
             
-        else:    
-            printer(response.status_code, gpu['name'], f"{button_label}. Retrieved: {fetch_time:.2f}s ago. Pause p: {random_pause:.2f}. Delay: {delay:.2f}s.", bcolors.FAIL)
-        
-    except Exception as e:
-        notify(f"{gpu['name']}", f"{e}", "Glass", gpu['url'], IMESSAGE_PHONE_NUMBER)
-        printer(e, gpu['name'], f"Failed to get response.", bcolors.WARNING)
-        notification_counter += 1
-        pass
+            if item["target"]["type"] == "class":
+                label = soup.find_all(class_=item["target"]["name"])[0].get_text()
 
-    time.sleep(delay)
-    buffer -= 1
+            elif item["target"]["type"] == "id":
+                label = soup.find_all(id=item["target"]["name"])[0].get_text()
+
+            if label == item["keyword"]:
+                pprint(item, label, "OK")
+                self.alert(item, label)
+            
+            else:
+                pprint(item, label, "WARN")
+            
+        except Exception as e:
+            pprint(item, e, "FAIL")
+            self.alert(item, e)
+
+    def stop(self):
+        self.active = False
+        logging.info("Scraper stopped")
+
+    def random_pause(self):
+        pause = random.uniform(0, self.options["pause"])
+        long_pause = random.uniform(0, self.options["long_pause"])
+        
+        p = random.random()
+
+        if p <= self.options["long_pause_proba"]:
+            print(f"Sleeping for {round(long_pause, 1)}s")
+            time.sleep(long_pause)
+        
+        else:
+            time.sleep(pause)
+
+    def random_item(self):
+        return random.choice(self.products)
+    
+    def random_headers(self):
+        headers = {
+            "User-Agent": random.choice(self.user_agents),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "en-us",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Connection": "keep-alive"
+            }
+
+        return headers
+
+    def alert(self, item, message):
+        try:
+            for number in self.imessage_numbers:
+                notify(number, item, message)
+        except:
+            pass
+        
+        self.notifications += 1
+        
+        if self.notifications >= self.options["max_notifications"]:
+            self.stop()        
+
+if __name__ == "__main__":
+    scrape = Scraper()
+    scrape.start()
