@@ -1,4 +1,3 @@
-import logging
 import json
 import random
 import requests
